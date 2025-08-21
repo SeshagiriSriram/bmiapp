@@ -1,0 +1,136 @@
+name: Java CI Quality Gate
+
+on:
+  push: {}
+
+jobs:
+  code_quality:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tool: [pmd, checkstyle]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Run ${{ matrix.tool }} and fail on violations
+        run: |
+          mvn ${{ matrix.tool }}:check || {
+            echo "::error::${{ matrix.tool }} violations found on branch ${{ github.ref_name }}"
+            echo "FailureSource=${{ matrix.tool }}" >> $GITHUB_ENV
+            exit 1
+          }
+          mkdir -p reports/${{ matrix.tool }}
+          cp -r target/site/${{ matrix.tool }}* reports/${{ matrix.tool }}
+
+      - name: Upload ${{ matrix.tool }} report
+        if: success()
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.tool }}-report
+          path: reports/${{ matrix.tool }}
+
+  test_and_coverage:
+    runs-on: ubuntu-latest
+    needs: code_quality
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Run tests
+        id: run-tests
+        run: |
+          mvn clean test || {
+            echo "::error::Tests failed on branch ${{ github.ref_name }}"
+            echo "FailureSource=tests" >> $GITHUB_ENV
+            exit 1
+          }
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: target/surefire-reports
+
+      - name: Run coverage (only if tests passed)
+        if: success()
+        run: mvn jacoco:report
+
+      - name: Upload coverage report
+        if: success()
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: target/site/jacoco
+
+  publish_reports:
+    runs-on: ubuntu-latest
+    needs: [code_quality, test_and_coverage]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: site
+
+  fail_and_issue:
+    runs-on: ubuntu-latest
+    needs: [code_quality, test_and_coverage]
+    if: failure()
+    steps:
+      - name: Create failure message
+        run: |
+          echo "Branch: ${{ github.ref_name }}" > failure.txt
+          echo "❌ CI Failure Source: ${{ env.FailureSource }}" >> failure.txt
+
+      - name: Check for existing issue
+        id: check-issue
+        uses: peter-evans/find-issue@v2
+        with:
+          title: "❌ CI Failure on branch ${{ github.ref_name }}"
+
+      - name: Create issue on failure
+        if: steps.check-issue.outputs.issue_number == ''
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: "❌ CI Failure on branch ${{ github.ref_name }}"
+          content-filepath: failure.txt
+          labels: ci-failure, bug, ${{ env.FailureSource }}
+
+  close-issue-on-success:
+    runs-on: ubuntu-latest
+    needs: [code_quality, test_and_coverage]
+    if: success()
+    steps:
+      - name: Check for existing issue
+        id: check-issue
+        uses: peter-evans/find-issue@v2
+        with:
+          title: "❌ CI Failure on branch ${{ github.ref_name }}"
+
+      - name: Close issue if exists
+        if: steps.check-issue.outputs.issue_number != ''
+        uses: peter-evans/close-issue@v2
+        with:
+          issue-number: ${{ steps.check-issue.outputs.issue_number }}
+          comment: "✅ CI passed on branch ${{ github.ref_name }}. Closing issue."

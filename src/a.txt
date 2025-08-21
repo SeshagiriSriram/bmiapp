@@ -1,0 +1,26 @@
+ Volume in drive E is WORK
+ Volume Serial Number is D452-F82B
+
+ Directory of E:\demo\bmiapp_local
+
+21-08-2025  19:22    <DIR>          .
+21-08-2025  18:07    <DIR>          ..
+21-08-2025  17:25    <DIR>          .github
+19-08-2025  20:15               474 .gitignore
+21-08-2025  19:13               169 Dockerfile
+21-08-2025  19:14               169 Dockerfile-app
+19-08-2025  18:10            10,600 mvnw
+19-08-2025  18:10             6,922 mvnw.cmd
+19-08-2025  20:12            28,518 package-lock.json
+19-08-2025  20:12               290 package.json
+21-08-2025  17:43             3,251 pom.xml
+21-08-2025  17:43             5,075 pom.xml.txt
+19-08-2025  18:10               868 README.md
+21-08-2025  17:25    <DIR>          src
+21-08-2025  17:25    <DIR>          styles
+19-08-2025  18:10               137 tailwind.config.js
+21-08-2025  19:23    <DIR>          target
+20-08-2025  23:28             4,026 workflow.txt
+19-08-2025  20:12            15,993 yarn.lock
+              13 File(s)         76,492 bytes
+               6 Dir(s)  90,142,257,152 bytes free
